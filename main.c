@@ -1,58 +1,16 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_host.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
+#include "stdint.h"
 
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+
 I2C_HandleTypeDef hi2c2;
 
 I2S_HandleTypeDef hi2s3;
-
 SPI_HandleTypeDef hspi1;
 
-/* USER CODE BEGIN PV */
 
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
@@ -61,41 +19,24 @@ static void MX_SPI1_Init(void);
 static void MX_I2C2_Init(void);
 void MX_USB_HOST_Process(void);
 
-/* USER CODE BEGIN PFP */
 
-/* USER CODE END PFP */
-
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
-
-/* USER CODE END 0 */
-
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
 int main(void)
 {
 
-  /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
+  /*
+  * Setup:
+  * PB10 - SCL
+  * PB11 - SDA
+  */
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
-  /* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
@@ -104,21 +45,71 @@ int main(void)
   MX_SPI1_Init();
   MX_USB_HOST_Init();
   MX_I2C2_Init();
+
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+
+  char upper_nibble, lower_nibble;
+  uint8_t buffer[4];
+  uint8_t cmd = 0x30;
+
+  upper_nibble = (cmd & 0xF0);            // Extract upper nibble
+  lower_nibble = ((cmd << 4) & 0xF0);     // Extract lower nibble
+
+  buffer[0] = upper_nibble | 0x0C;  // en=1, rs=0
+  buffer[1] = upper_nibble | 0x08;  // en=0, rs=0
+  buffer[2] = lower_nibble | 0x0C;  // en=1, rs=0
+  buffer[3] = lower_nibble | 0x08;  // en=0, rs=0
+
   while (1)
   {
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
+    // Wait until the bus is ready
+    while (HAL_I2C_GetState(&hi2c2) != HAL_I2C_STATE_READY)
+    {
+    }
+
+    // TODO: delete
+    // ! TODO: check if any error is returned in the first place
+    int hal_status = HAL_I2C_Master_Transmit_IT(&hi2c2, 0x27<<1, buffer, 4);
+    if (hal_status != HAL_OK)
+    {
+    	// TODO: delete
+        int dummy = 1;
+    }
+
+    HAL_Delay(500);
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
+
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(hi2c);
+
+  if (hi2c->ErrorCode == HAL_I2C_ERROR_AF){
+	  int dummy = 1;
+  }
+}
+
+// TODO: delete
+void HAL_I2C_MasterTxCpltCallback (I2C_HandleTypeDef * hi2c)
+{
+  // TX Done .. Do Something!
+  // TODO: delete
+  int dummy = 1;
+}
+
 
 /**
   * @brief System Clock Configuration
@@ -229,9 +220,12 @@ static void MX_I2C2_Init(void)
   }
   /* USER CODE BEGIN I2C2_Init 2 */
 
+
+
   /* USER CODE END I2C2_Init 2 */
 
 }
+
 
 /**
   * @brief I2S3 Initialization Function
