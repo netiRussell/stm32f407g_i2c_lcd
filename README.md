@@ -3,30 +3,31 @@
 
 # How to use:
 -- Polling logic use --
- * Globally initialize:
+ * Globally initialize:<br />
     I2C_HandleTypeDef hi2c2;
 
- * In the main function:
- 	// Initialization
- 	LCD_Init(LCDaddr, tx_buffer);
- 	uint8_t tx_buffer[4];
- 	const uint8_t LCDaddr = 0x27 << 1;
+ * In the main function:<br />
+ 	// Initialization<br />
+	LCD_Init(LCDaddr, tx_buffer);<br />
+ 	uint8_t tx_buffer[4];<br />
+ 	const uint8_t LCDaddr = 0x27 << 1;<br />
 
- 	// Write data
- 	char data[] = "Ruslan A";
+ 	// Write data<br />
+ 	char data[] = "Ruslan A";<br />
  	writeDataLCD(LCDaddr, tx_buffer, data);
 
+<br />
 
 -- Interrupt logic use --
- *  Globally initialize
- 	I2C_HandleTypeDef hi2c2;
+ *  Globally initialize<br />
+ 	I2C_HandleTypeDef hi2c2;<br />
 	LCD_HandleTypeDef lcd;
 
- * In the main function:
-	// Initialization
-	LCD_Init(LCDaddr, tx_buffer);
+ * In the main function:<br />
+	// Initialization<br />
+	LCD_Init(LCDaddr, tx_buffer);<br />
 	lcd.LCD_addr = 0x27 << 1;
 
-	// Write data
-	char data[] = "Hello World!";
+	// Write data<br />
+	char data[] = "Hello World!";<br />
 	writeDataLCD_IT(data);
