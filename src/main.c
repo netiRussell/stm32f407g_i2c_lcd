@@ -54,8 +54,8 @@ int main(void)
   //const uint8_t LCDaddr = 0x27 << 1;
 
   // -- Initialization --
-  LCD_Init(tx_buffer, LCDaddr);
   lcd.LCD_addr = 0x27 << 1;
+  LCD_Init(lcd.LCD_addr, tx_buffer);
 
   // -- Write data --
   char data[] = "Hello World!";
