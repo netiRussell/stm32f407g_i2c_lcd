@@ -5,6 +5,7 @@
 I2C_HandleTypeDef hi2c1;
 
 I2C_HandleTypeDef hi2c2;
+LCD_HandleTypeDef lcd;
 
 I2S_HandleTypeDef hi2s3;
 SPI_HandleTypeDef hspi1;
@@ -50,16 +51,15 @@ int main(void)
 
   /* USER CODE BEGIN WHILE */
   uint8_t tx_buffer[4];
-  uint8_t LCDaddr = 0x27 << 1;
-
-  // TODO: perhaps the 4th bit doesn't need to be high?
+  //const uint8_t LCDaddr = 0x27 << 1;
 
   // -- Initialization --
   LCD_Init(tx_buffer, LCDaddr);
+  lcd.LCD_addr = 0x27 << 1;
 
   // -- Write data --
-  char data[] = "Ruslan A";
-  writeDataLCD(LCDaddr, tx_buffer, data);
+  char data[] = "Hello World!";
+  writeDataLCD_IT(data);
 
 
   // -- Infinite loop --
@@ -83,12 +83,73 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
   }
 }
 
-// TODO: delete
 void HAL_I2C_MasterTxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
-  // TX Done .. Do Something!
-  // TODO: delete
-  int dummy = 1;
+  switch(lcd.state){
+  	  case SEND_CHAR:
+  		  // Character has been sent
+  		  // Switch to ENABLE_READ
+  		  lcd.state = ENABLE_READ;
+
+  		  // Enable the read pin in LCD
+  		  uint8_t enableRead = 0b00001010;
+  		  HAL_I2C_Master_Transmit_IT(&hi2c2, lcd.LCD_addr, &enableRead, (uint8_t) 1);
+  		  break;
+
+  	  case ENABLE_READ:
+  		  // The read pin has been enabled
+  		  // Start reading the busy flag
+  		  lcd.state = POLL_BF;
+  		  HAL_I2C_Master_Receive_IT(&hi2c2, lcd.LCD_addr, &lcd.rx_buffer, 1);
+  		  break;
+
+  	  case POLL_BF:
+  		  break;
+
+  	  case FINISHED:
+  		  break;
+  }
+}
+
+void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
+{
+  switch(lcd.state){
+  	  case SEND_CHAR:
+  		  break;
+
+  	  case ENABLE_READ:
+  		  break;
+
+  	  case POLL_BF:
+  		  // Check if Busy Flag is 1, meaning LCD is not ready for reception
+  		  if(lcd.rx_buffer & 0b1 << 7){
+  			  // Busy => check on it again
+  			  HAL_I2C_Master_Receive_IT(&hi2c2, lcd.LCD_addr, &lcd.rx_buffer, 1);
+  		  } else {
+  			  lcd.data++;
+
+  			  if(*lcd.data == '\0'){
+  				  // No more data to send
+  				  lcd.state = FINISHED;
+  				  break;
+  			  }
+
+  			  // Reset the LCD state machine
+  			  lcd.state = SEND_CHAR;
+  			  lcd.rx_buffer = 0;
+
+  			  // Prepare data
+  			  prepareBuffer(lcd.tx_buffer, *lcd.data, 1, 0);
+
+  			  // Run the state machine. Next character transfer
+  			  HAL_I2C_Master_Transmit_IT(&hi2c2, lcd.LCD_addr, lcd.tx_buffer, (uint8_t) 4);
+  		  }
+
+  		  break;
+
+  	  case FINISHED:
+  		  break;
+  }
 }
 
 

@@ -2,16 +2,38 @@
 
 extern I2C_HandleTypeDef hi2c2;
 
-void waitBFgoLow(uint8_t LCDaddr){
-	uint8_t tx_buffer[2] = {0b00001110, 0b00001010};
-	pollingMasterSend(LCDaddr, tx_buffer, 2, 0);
+/*
+ * -- Polling logic use --
+ * Globally initialize:
+    I2C_HandleTypeDef hi2c2;
 
-	uint8_t rx_buffer = 0;
+ * In the main function:
+ 	// Initialization
+ 	LCD_Init(tx_buffer, LCDaddr);
+ 	uint8_t tx_buffer[4];
+ 	const uint8_t LCDaddr = 0x27 << 1;
 
-	do{
-		pollingMasterRead(LCDaddr, &rx_buffer, (uint8_t) 0);
-	} while(rx_buffer & 0b1 << 7);
-}
+ 	// Write data
+ 	char data[] = "Ruslan A";
+ 	writeDataLCD(LCDaddr, tx_buffer, data);
+
+
+ * -- Interrupt logic use --
+ *  Globally initialize
+ 	I2C_HandleTypeDef hi2c2;
+	LCD_HandleTypeDef lcd;
+
+ * In the main function:
+	// Initialization
+	LCD_Init(tx_buffer, LCDaddr);
+	lcd.LCD_addr = 0x27 << 1;
+
+	// Write data
+	char data[] = "Hello World!";
+	writeDataLCD_IT(data);
+ */
+
+
 
 void pollingMasterSend(uint8_t LCDaddr, uint8_t* tx_buffer, uint8_t data_size, uint8_t delay_ms){
 	// Wait until the bus is ready
@@ -31,7 +53,7 @@ void pollingMasterSend(uint8_t LCDaddr, uint8_t* tx_buffer, uint8_t data_size, u
 	HAL_Delay(delay_ms);
 }
 
-void pollingMasterRead(uint8_t LCDaddr, uint8_t* tx_buffer, uint8_t delay_ms){
+void pollingMasterRead(uint8_t LCDaddr, uint8_t* rx_buffer, uint8_t delay_ms){
 	// Wait until the bus is ready
 	while (HAL_I2C_GetState(&hi2c2) != HAL_I2C_STATE_READY)
 	{
@@ -39,7 +61,7 @@ void pollingMasterRead(uint8_t LCDaddr, uint8_t* tx_buffer, uint8_t delay_ms){
 
 	// TODO: delete
 	// ! TODO: check if any error is returned in the first place
-	int hal_status = HAL_I2C_Master_Receive(&hi2c2, LCDaddr, tx_buffer, 1, HAL_MAX_DELAY);
+	int hal_status = HAL_I2C_Master_Receive(&hi2c2, LCDaddr, rx_buffer, 1, HAL_MAX_DELAY);
 	if (hal_status != HAL_OK)
 	{
 	  int dummy = 1;
@@ -124,9 +146,44 @@ void writeDataLCD(uint8_t LCDaddr, uint8_t* tx_buffer, char* data){
 	while(*data != '\0'){
 		prepareBuffer(tx_buffer, *data, 1, 0);
 		pollingMasterSend(LCDaddr, tx_buffer, (uint8_t) 4, (uint8_t) 500);
+
 		waitBFgoLow(LCDaddr);
 
 		data++;
 	}
 
 }
+
+void waitBFgoLow(uint8_t LCDaddr){
+	uint8_t enableRead = 0b00001010;
+	pollingMasterSend(LCDaddr, &enableRead, (uint8_t) 1, (uint8_t) 1);
+
+	uint8_t rx_buffer = 0;
+
+	do{
+		pollingMasterRead(LCDaddr, &rx_buffer, (uint8_t) 0);
+	} while(rx_buffer & 0b1 << 7);
+}
+
+
+/* -- Interrupt-based logic -- */
+extern LCD_HandleTypeDef lcd;
+
+void writeDataLCD_IT(char* data){
+	// Make sure data is not empty
+	if(*data == '\0'){
+		return;
+	}
+
+	// Reset the LCD state machine
+	lcd.state = SEND_CHAR;
+	lcd.data = data;
+	lcd.rx_buffer = 0;
+
+	// Prepare data
+	prepareBuffer(lcd.tx_buffer, *lcd.data, 1, 0);
+
+	// Run the state machine. Initial data transfer
+	HAL_I2C_Master_Transmit_IT(&hi2c2, lcd.LCD_addr, lcd.tx_buffer, (uint8_t) 4);
+}
+
